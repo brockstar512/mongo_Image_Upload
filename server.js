@@ -31,7 +31,7 @@ conn.once('open',()=>{
     gfs.collection('uploads')
 })
 
-//create storage 
+//creates storage db
 const storage = new GridFsStorage({
     url: mongoURI,
     file:(req,file)=>{
@@ -59,6 +59,7 @@ const storage = new GridFsStorage({
 //this will create an upload variable and use multer to run the storage function
 // console.log("here is multer",storage)
 const upload = multer({ storage })
+
 
 //
 app.get('/', (req, res)=>{
@@ -99,8 +100,72 @@ app.get('/files/:filename', (req, res)=>{
     })
     })
 
-
 //in order to acually interprest the json data as an image we have to use read stream
+//display image
+app.get('/image/:filename', (req, res)=>{
+    gfs.files.findOne({filename: req.params.filename}, (err, file)=>{
+        if(!file || file.length === 0){
+            return res.status(404).json({
+                err: 'no file exist'
+            })
+        }
+        //check if image //this will take jpeg and png
+        //if they try and submit a different type of file it will go crazy
+        if(file.contentType==="image/jpeg"||file.contentType==="image/png"||file.contentType==="video/mp4"){
+            //read output to browser
+            const readstream = gfs.createReadStream(file.filename)
+            readstream.pipe(res)
+        }else{
+            res.status(404).json({
+                err:"Not an image"
+            })
+        }
+    })
+})
+//render all images
+// app.get('/', (req, res)=>{
+//     gfs.files.find().toArray((err,files)=>{
+//         if(!files || files.length === 0){
+//             res.render('index', {files:false})
+//         }else{
+//             files.map(file=>{
+//                 if(file.contentType==="image/jpeg"||file.contentType==="image/png"||file.contentType==="video/mp4")
+//                 {   //setting a new value onto the image object
+//                     file.isImage = true
+//                 }
+//                 else{
+//                     file.isImage = false
+//                 }
+//             })
+//             res.render('index', {files:files})
+//         }
+//      })
+//     })
+
+//try rendering them my way
+
+
+//delete 
+app.delete('/files/:id', (req, res)=>{
+                        //you need to include the collections in roote
+    gfs.files.remove({_id: req.params.id, root:"uploads"}, (err, gridstore)=>{
+       if(err){
+           return res.status(404).json({err: err})
+       }
+       else{
+           console.log("del success!")
+        //    res.redirect("/")
+        res.json("Delete success!")
+       }
+    })
+    })
+
+    //this will for sure delete
+    //mongo
+    //show dbs
+    //use name
+    //show collections
+    //db.uploads.files.deleteOne( { "_id" : ObjectId("5eeae45c2cca77957c783f93")} )
 
 
 const port = 5000
