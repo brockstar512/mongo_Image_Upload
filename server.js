@@ -1,26 +1,26 @@
-const express = require("express")
-const bodyParser = require('body-parser')
-const path = require("path")
-const crypto = require('crypto')
-const mongoose = require('mongoose')
-const multer = require('multer')
-const GridFsStorage = require('multer-gridfs-storage')
-const Grid = require('gridfs-stream')
-const methodOverride = require('method-override')
+const express = require('express');
+const bodyParser = require('body-parser');
+const path = require('path');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
+const multer = require('multer');
+const GridFsStorage = require('multer-gridfs-storage');
+const Grid = require('gridfs-stream');
+const methodOverride = require('method-override');
 
 const app = express();
 
 //middle ware
-app.use(bodyParser.json())
-app.use(methodOverride("_method"))//suppose to let us use a query string in order to make a delete request
+app.use(bodyParser.json());
+app.use(methodOverride('_method'));//suppose to let us use a query string in order to make a delete request
 app.set('view engine', 'ejs');
 //this uses set to find the ejs index file in views
 
 //Mongo URI
-const mongoURI = 'mongodb://localhost/image_db'
+const mongoURI = 'mongodb://localhost/image_db';
 
 //mongo connection
-const conn = mongoose.createConnection(mongoURI)
+const conn = mongoose.createConnection(mongoURI);
 
 //init GFS- initialize stream
 let gfs;
@@ -100,65 +100,66 @@ app.get('/files/:filename', (req, res)=>{
     })
     })
 
+
+
+
+//render all images
+app.get('/', (req, res) => {
+  gfs.files.find().toArray((err, files) => {
+    // Check if files
+    if (!files || files.length === 0) {
+      res.render('index', { files: false });
+    } else {
+      files.map(file => {
+        if (
+          file.contentType === 'image/jpeg' ||
+          file.contentType === 'image/png'
+        ) {
+          file.isImage = true;
+        } else {
+          file.isImage = false;
+        }
+      });
+      res.render('index', { files: files });
+    }
+  });
+});
+
 //in order to acually interprest the json data as an image we have to use read stream
 //display image
 app.get('/image/:filename', (req, res)=>{
-    gfs.files.findOne({filename: req.params.filename}, (err, file)=>{
-        if(!file || file.length === 0){
-            return res.status(404).json({
-                err: 'no file exist'
-            })
-        }
-        //check if image //this will take jpeg and png
-        //if they try and submit a different type of file it will go crazy
-        if(file.contentType==="image/jpeg"||file.contentType==="image/png"||file.contentType==="video/mp4"){
-            //read output to browser
-            const readstream = gfs.createReadStream(file.filename)
-            readstream.pipe(res)
-        }else{
-            res.status(404).json({
-                err:"Not an image"
-            })
-        }
-    })
-})
-//render all images
-// app.get('/', (req, res)=>{
-//     gfs.files.find().toArray((err,files)=>{
-//         if(!files || files.length === 0){
-//             res.render('index', {files:false})
-//         }else{
-//             files.map(file=>{
-//                 if(file.contentType==="image/jpeg"||file.contentType==="image/png"||file.contentType==="video/mp4")
-//                 {   //setting a new value onto the image object
-//                     file.isImage = true
-//                 }
-//                 else{
-//                     file.isImage = false
-//                 }
-//             })
-//             res.render('index', {files:files})
-//         }
-//      })
-//     })
+  gfs.files.findOne({filename: req.params.filename}, (err, file)=>{
+      if(!file || file.length === 0){
+          return res.status(404).json({
+              err: 'no file exist'
+          })
+      }
 
-//try rendering them my way
+    //check if image //this will take jpeg and png
+    //if they try and submit a different type of file it will go crazy
+    if (file.contentType === 'image/jpeg' || file.contentType === 'image/png') {
+      // Read output to browser
+      const readstream = gfs.createReadStream(file.filename);
+      readstream.pipe(res);
+      } else {
+        res.status(404).json({
+          err: 'Not an image'
+        });
+      }
+    });
+  });
 
 
 //delete 
-app.delete('/files/:id', (req, res)=>{
-                        //you need to include the collections in roote
-    gfs.files.remove({_id: req.params.id, root:"uploads"}, (err, gridstore)=>{
-       if(err){
-           return res.status(404).json({err: err})
-       }
-       else{
-           console.log("del success!")
-        //    res.redirect("/")
-        res.json("Delete success!")
-       }
-    })
-    })
+app.delete('/files/:id', (req, res) => {
+    gfs.remove({ _id: req.params.id, root: 'uploads' }, (err, gridStore) => {
+      if (err) {
+        return res.status(404).json({ err: err });
+      }
+  
+      res.redirect('/files');
+    });
+  });
 
     //this will for sure delete
     //mongo
@@ -168,9 +169,10 @@ app.delete('/files/:id', (req, res)=>{
     //db.uploads.files.deleteOne( { "_id" : ObjectId("5eeae45c2cca77957c783f93")} )
 
 
-const port = 5000
 
-app.listen(port, () => console.log(`server started on ${port}`))
+    const port = 5000;
+
+    app.listen(port, () => console.log(`Server started on port ${port}`));
 
 
 // Multer is a NodeJS middleware which facilitates file uploads. 
@@ -194,3 +196,11 @@ app.listen(port, () => console.log(`server started on ${port}`))
 //     "uploadDate": "2020-06-17T02:58:37.203Z",
 //     "contentType": "image/png"
 //     }
+
+
+// get all files
+//http://localhost:5000/files
+//get one file
+//http://localhost:5000/files/d00e2a1d1473bdc9b8a0b7078c168d3b.JPG
+// stream one Image
+// http://localhost:5000/image/380e4fe4566a188059cb788f674bc46f.png
